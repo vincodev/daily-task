@@ -1,44 +1,56 @@
 import "./global.css";
 
-import React, { useState } from "react";
-import { StatusBar } from "expo-status-bar";
-import { Text, View, Pressable } from "react-native";
+import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import OnboardingScreen from "./components/OnboardingScreen";
+import OnboardingScreen from "./src/components/OnboardingScreen";
+import Main from "./src/screens/Main";
+
+import { Provider } from "react-redux";
+import { store } from "./src/app/store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function App() {
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(true);
+  const [isHydrated, setIsHydrated] = useState<boolean>(false);
 
-  const handleOnboardingComplete = () => {
+  useEffect(() => {
+    const hydrateOnboardingFlag = async () => {
+      try {
+        const stored = await AsyncStorage.getItem("onboardingCompleted");
+        if (stored === "true") {
+          setShowOnboarding(false);
+        }
+      } catch (error) {
+        // If storage fails, default to showing onboarding once
+      } finally {
+        setIsHydrated(true);
+      }
+    };
+    hydrateOnboardingFlag();
+  }, []);
+
+  const handleOnboardingComplete = async () => {
+    try {
+      await AsyncStorage.setItem("onboardingCompleted", "true");
+    } catch (error) {
+      // Best-effort; continue
+    }
     setShowOnboarding(false);
   };
 
-  const handleResetOnboarding = () => {
-    setShowOnboarding(true);
-  };
+  if (!isHydrated) {
+    return null;
+  }
 
   if (showOnboarding) {
     return <OnboardingScreen onComplete={handleOnboardingComplete} />;
   }
 
   return (
-    <SafeAreaView className="flex-1">
-      <LinearGradient
-        colors={['#667eea', '#764ba2']}
-        className="flex-1"
-      >
-        <View className="flex-1 items-center justify-center p-6">
-            <Pressable
-              onPress={handleResetOnboarding}
-              className="bg-white/20 backdrop-blur-sm border border-white/30 py-4 px-8 rounded-2xl shadow-lg"
-            >
-              <Text className="font-bold text-lg text-white">
-                View Onboarding Again
-              </Text>
-            </Pressable>
-          </View>
-      </LinearGradient>
-    </SafeAreaView>
+    <Provider store={store}>
+      <SafeAreaView className="flex-1">
+        <Main />
+      </SafeAreaView>
+    </Provider>
   );
 }
