@@ -1,19 +1,21 @@
 //src/screens/Main.tsx
 
-
 import React from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { toggleTask, removeTask } from "../features/tasks/tasksSlice";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { AppNotification } from "../features/notifications/notificationsSlice";
 
 interface MainProps {
   onAddPress?: () => void;
+  onNotificationsPress?: () => void;
 }
 
-const Main: React.FC<MainProps> = ({ onAddPress }) => {
+const Main: React.FC<MainProps> = ({ onAddPress, onNotificationsPress }) => {
   const tasks = useAppSelector((state) => state.tasks.items);
+  const notifications = useAppSelector((state) => state.notifications.items);
   const dispatch = useAppDispatch();
 
   const completedCount = tasks.filter((t) => t.completed).length;
@@ -36,8 +38,20 @@ const Main: React.FC<MainProps> = ({ onAddPress }) => {
               Let's be productive today
             </Text>
           </View>
-          <TouchableOpacity className="bg-white/20 p-3 rounded-full">
-            <Ionicons name="notifications" size={24} color="white" />
+          <TouchableOpacity
+            className="bg-white/20 p-3 rounded-full"
+            onPress={onNotificationsPress}
+          >
+            <View>
+              <Ionicons name="notifications" size={24} color="white" />
+              {notifications.some((n) => !n.read) && (
+                <View className="absolute -top-1 -right-1 bg-red-500 rounded-full px-1.5 py-0.5">
+                  <Text className="text-white text-xs">
+                    {notifications.filter((n) => !n.read).length}
+                  </Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
 

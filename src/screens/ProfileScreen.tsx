@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppSelector } from "../app/hooks";
 
 interface ProfileScreenProps {
   onClose: () => void;
@@ -18,6 +19,51 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onClose }) => {
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [autoBackup, setAutoBackup] = useState(true);
+  const tasks = useAppSelector((state) => state.tasks.items);
+
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter((t) => t.completed).length;
+  const productivityPct = totalTasks
+    ? Math.round((completedTasks / totalTasks) * 100)
+    : 0;
+
+  const startOfDay = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  };
+
+  const formatDayKey = (date: Date) => startOfDay(date).toISOString();
+
+  const completedByDay = (() => {
+    const map: Record<string, number> = {};
+    for (const t of tasks) {
+      if (!t.completed) continue;
+      const key = formatDayKey(new Date(t.createdAt));
+      map[key] = (map[key] || 0) + 1;
+    }
+    return map;
+  })();
+
+  const computeCurrentStreakDays = () => {
+    let streak = 0;
+    const today = startOfDay(new Date());
+    for (let i = 0; ; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = formatDayKey(d);
+      const hasCompleted = completedByDay[key] && completedByDay[key] > 0;
+      if (i === 0) {
+        // If today has no completed tasks, streak is 0
+        if (!hasCompleted) return 0;
+        streak++;
+      } else {
+        if (!hasCompleted) break;
+        streak++;
+      }
+    }
+    return streak;
+  };
+
+  const currentStreakDays = computeCurrentStreakDays();
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -31,10 +77,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onClose }) => {
   };
 
   const profileStats = [
-    { label: "Tasks Completed", value: "24", icon: "checkmark-circle" },
-    { label: "Current Streak", value: "7 days", icon: "flame" },
-    { label: "Total Tasks", value: "156", icon: "list" },
-    { label: "Productivity", value: "85%", icon: "trending-up" },
+    {
+      label: "Tasks Completed",
+      value: String(completedTasks),
+      icon: "checkmark-circle",
+    },
+    {
+      label: "Current Streak",
+      value: `${currentStreakDays} day${currentStreakDays === 1 ? "" : "s"}`,
+      icon: "flame",
+    },
+    { label: "Total Tasks", value: String(totalTasks), icon: "list" },
+    {
+      label: "Productivity",
+      value: `${productivityPct}%`,
+      icon: "trending-up",
+    },
   ];
 
   const menuItems = [

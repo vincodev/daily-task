@@ -12,15 +12,20 @@ import Main from "./src/screens/Main";
 import TaskScreen from "./src/screens/TaskScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
+import NotificationsScreen from "./src/screens/NotificationsScreen";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppDispatch, useAppSelector } from "./src/app/hooks";
 import { setTasks } from "./src/features/tasks/tasksSlice";
+import {
+  setNotifications,
+  addNotification,
+} from "./src/features/notifications/notificationsSlice";
 
 export default function App() {
   const [showOnboarding, setShowOnboarding] = useState<boolean>(true);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<
-    "home" | "task" | "calendar" | "profile"
+    "home" | "task" | "calendar" | "profile" | "notifications"
   >("home");
 
   useEffect(() => {
@@ -54,13 +59,22 @@ export default function App() {
       <TaskPersistence>
         <SafeAreaView className="flex-1">
           {currentPage === "home" && (
-            <Main onAddPress={() => setCurrentPage("task")} />
+            <Main
+              onAddPress={() => setCurrentPage("task")}
+              onNotificationsPress={() => setCurrentPage("notifications")}
+            />
+          )}
+          {currentPage === "notifications" && (
+            <NotificationsScreen onClose={() => setCurrentPage("home")} />
           )}
           {currentPage === "task" && (
             <TaskScreen onClose={() => setCurrentPage("home")} />
           )}
           {currentPage === "calendar" && (
-            <CalendarScreen onClose={() => setCurrentPage("home")} />
+            <CalendarScreen
+              onClose={() => setCurrentPage("home")}
+              onAddPress={() => setCurrentPage("task")}
+            />
           )}
           {currentPage === "profile" && (
             <ProfileScreen onClose={() => setCurrentPage("home")} />
@@ -122,13 +136,16 @@ export default function App() {
 
 // Persist tasks in AsyncStorage
 const TASKS_STORAGE_KEY = "tasks_state_v1";
+const NOTIFS_STORAGE_KEY = "notifs_state_v1";
 
 const TaskPersistence: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const dispatch = useAppDispatch();
   const tasks = useAppSelector((state) => state.tasks.items);
+  const notifications = useAppSelector((state) => state.notifications.items);
 
+  // Load persisted tasks and notifications on mount
   useEffect(() => {
     const load = async () => {
       try {
@@ -139,12 +156,20 @@ const TaskPersistence: React.FC<{ children: React.ReactNode }> = ({
             dispatch(setTasks(parsed));
           }
         }
+        const rawNotifs = await AsyncStorage.getItem(NOTIFS_STORAGE_KEY);
+        if (rawNotifs) {
+          const parsedN = JSON.parse(rawNotifs);
+          if (Array.isArray(parsedN)) {
+            dispatch(setNotifications(parsedN));
+          }
+        }
       } catch (_) {}
     };
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Persist tasks
   useEffect(() => {
     const save = async () => {
       try {
@@ -153,6 +178,68 @@ const TaskPersistence: React.FC<{ children: React.ReactNode }> = ({
     };
     save();
   }, [tasks]);
+
+  // Persist notifications
+  useEffect(() => {
+    const save = async () => {
+      try {
+        await AsyncStorage.setItem(
+          NOTIFS_STORAGE_KEY,
+          JSON.stringify(notifications)
+        );
+      } catch (_) {}
+    };
+    save();
+  }, [notifications]);
+
+  // Generate in-app notifications
+  useEffect(() => {
+    const postDailyReminder = () => {
+      const todayKey = new Date().toDateString();
+      const exists = notifications.some((n) => n.tag === `daily:${todayKey}`);
+      if (!exists) {
+        dispatch(
+          addNotification(
+            "Daily Reminder",
+            "Create your tasks for today to stay on track",
+            `daily:${todayKey}`
+          )
+        );
+      }
+    };
+
+    const postIncompleteYesterday = () => {
+      const now = new Date();
+      const yesterday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() - 1
+      );
+      const sameDay = (a: Date, b: Date) =>
+        a.getFullYear() === b.getFullYear() &&
+        a.getMonth() === b.getMonth() &&
+        a.getDate() === b.getDate();
+      const yTasks = tasks.filter((t) =>
+        sameDay(new Date(t.createdAt), yesterday)
+      );
+      if (yTasks.length === 0) return;
+      const allDone = yTasks.every((t) => t.completed);
+      const tag = `incomplete:${yesterday.toDateString()}`;
+      const exists = notifications.some((n) => n.tag === tag);
+      if (!allDone && !exists) {
+        dispatch(
+          addNotification(
+            "Unfinished tasks",
+            "You didn't finish all tasks yesterday. Review and complete them.",
+            tag
+          )
+        );
+      }
+    };
+
+    postDailyReminder();
+    postIncompleteYesterday();
+  }, [tasks, notifications, dispatch]);
 
   return <>{children}</>;
 };

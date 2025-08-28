@@ -8,14 +8,20 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppSelector } from "../app/hooks";
 
 interface CalendarScreenProps {
   onClose: () => void;
+  onAddPress?: () => void;
 }
 
-const CalendarScreen: React.FC<CalendarScreenProps> = ({ onClose }) => {
+const CalendarScreen: React.FC<CalendarScreenProps> = ({
+  onClose,
+  onAddPress,
+}) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const tasks = useAppSelector((state) => state.tasks.items);
 
   const daysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -42,6 +48,22 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ onClose }) => {
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+  const isSameDay = (a: Date, b: Date) => {
+    return (
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate()
+    );
+  };
+
+  const tasksOnDate = (date: Date) => {
+    return tasks.filter((t) => isSameDay(new Date(t.createdAt), date));
+  };
+  const isDateComplete = (date: Date) => {
+    const items = tasksOnDate(date);
+    return items.length > 0 && items.every((t) => t.completed);
+  };
+
   const generateCalendarDays = () => {
     const days = [];
     const totalDays = daysInMonth(currentMonth);
@@ -65,6 +87,8 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ onClose }) => {
         isEmpty: false,
         isSelected: date.toDateString() === selectedDate.toDateString(),
         isToday: date.toDateString() === new Date().toDateString(),
+        hasTasks: tasksOnDate(date).length > 0,
+        isComplete: isDateComplete(date),
       });
     }
 
@@ -146,26 +170,39 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ onClose }) => {
                 day.isEmpty ? "opacity-0" : ""
               }`}
             >
-              <View
-                className={`w-8 h-8 rounded-full items-center justify-center ${
-                  day.isSelected
-                    ? "bg-blue-500"
-                    : day.isToday
-                    ? "bg-blue-100"
-                    : ""
-                }`}
-              >
-                <Text
-                  className={`text-sm font-medium ${
-                    day.isSelected
-                      ? "text-white"
+              <View className="items-center">
+                <View
+                  className={`w-8 h-8 rounded-full items-center justify-center ${
+                    day.isComplete
+                      ? "bg-green-500"
+                      : day.isSelected
+                      ? "bg-blue-500"
                       : day.isToday
-                      ? "text-blue-600"
-                      : "text-gray-800"
+                      ? "bg-blue-100"
+                      : ""
                   }`}
                 >
-                  {day.day}
-                </Text>
+                  <Text
+                    className={`text-sm font-medium ${
+                      day.isComplete
+                        ? "text-white"
+                        : day.isSelected
+                        ? "text-white"
+                        : day.isToday
+                        ? "text-blue-600"
+                        : "text-gray-800"
+                    }`}
+                  >
+                    {day.day}
+                  </Text>
+                </View>
+                {day.hasTasks && day.date && (
+                  <View className="mt-1">
+                    <Text className="text-[10px] text-blue-600 font-semibold">
+                      {tasksOnDate(day.date).length}
+                    </Text>
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
           ))}
@@ -177,9 +214,13 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ onClose }) => {
             {selectedDate.toDateString()}
           </Text>
           <Text className="text-gray-600">
-            No tasks scheduled for this date
+            {tasksOnDate(selectedDate).length} task
+            {tasksOnDate(selectedDate).length === 1 ? "" : "s"} on this date
           </Text>
-          <TouchableOpacity className="mt-3 bg-blue-500 py-2 px-4 rounded-xl self-start">
+          <TouchableOpacity
+            className="mt-3 bg-blue-500 py-2 px-4 rounded-xl self-start"
+            onPress={onAddPress}
+          >
             <Text className="text-white font-semibold">Add Task</Text>
           </TouchableOpacity>
         </View>
