@@ -10,6 +10,8 @@ import { store } from "./src/app/store";
 import OnboardingScreen from "./src/components/OnboardingScreen";
 import Main from "./src/screens/Main";
 import TaskScreen from "./src/screens/TaskScreen";
+import CalendarScreen from "./src/screens/CalendarScreen";
+import ProfileScreen from "./src/screens/ProfileScreen";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppDispatch, useAppSelector } from "./src/app/hooks";
 import { setTasks } from "./src/features/tasks/tasksSlice";
@@ -17,7 +19,9 @@ import { setTasks } from "./src/features/tasks/tasksSlice";
 export default function App() {
   const [showOnboarding, setShowOnboarding] = useState<boolean>(true);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
-  const [currentPage, setCurrentPage] = useState<"home" | "task">("home");
+  const [currentPage, setCurrentPage] = useState<
+    "home" | "task" | "calendar" | "profile"
+  >("home");
 
   useEffect(() => {
     const hydrateOnboardingFlag = async () => {
@@ -49,10 +53,17 @@ export default function App() {
     <Provider store={store}>
       <TaskPersistence>
         <SafeAreaView className="flex-1">
-          {currentPage === "home" ? (
+          {currentPage === "home" && (
             <Main onAddPress={() => setCurrentPage("task")} />
-          ) : (
+          )}
+          {currentPage === "task" && (
             <TaskScreen onClose={() => setCurrentPage("home")} />
+          )}
+          {currentPage === "calendar" && (
+            <CalendarScreen onClose={() => setCurrentPage("home")} />
+          )}
+          {currentPage === "profile" && (
+            <ProfileScreen onClose={() => setCurrentPage("home")} />
           )}
 
           {/* Bottom Tab Bar */}
@@ -66,7 +77,9 @@ export default function App() {
               ].map((tab) => {
                 const isActive =
                   (tab.key === "home" && currentPage === "home") ||
-                  (tab.key === "task" && currentPage === "task");
+                  (tab.key === "task" && currentPage === "task") ||
+                  (tab.key === "calendar" && currentPage === "calendar") ||
+                  (tab.key === "profile" && currentPage === "profile");
                 return (
                   <TouchableOpacity
                     key={tab.key}
@@ -74,6 +87,8 @@ export default function App() {
                     onPress={() => {
                       if (tab.key === "home") setCurrentPage("home");
                       if (tab.key === "task") setCurrentPage("task");
+                      if (tab.key === "calendar") setCurrentPage("calendar");
+                      if (tab.key === "profile") setCurrentPage("profile");
                     }}
                   >
                     <View
